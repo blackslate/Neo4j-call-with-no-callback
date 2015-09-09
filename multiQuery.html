@@ -4,10 +4,31 @@
 
 <body>
   <h1>Welcome to Meteor with Neo4j</h1>
-
   {{> hello}}
-</body>
+</body> 
+
 
 <template name="hello">
-  <button type="button">{{name}}</button>
+  <p>On start-up, two nodes should be created, with the names "Hello" and "World". They should both have a <code>keys</code> property whose value is an empty array.</p>
+
+  <button type="button">Click me</button>
+
+  <p>Each click should create a new <code>-[:LINK {lock:"World"}]-&gt;</code> between the "Hello" and "World" nodes. A "World" item should be added to the <code>keys</code> array of the "Hello" node.</p>
+  <p>Check in the Neo4j browser at <a href="http://localhost:7474" target="Neo4j">localhost:7474</a> using the query:<pre>
+  MATCH (n) RETURN n</pre></p>
+  <p>All of this works correctly.</p>
+
+  <h2>Bug</h2>
+  <p>The client-side callback on line 41 is never called.</p>
+  <pre>  Template.hello.events({
+    'click button': function () {
+      // helloWorld is a MongoDB Collection
+      var options = {name1: "Hello", name2: "World"}
+      Meteor.neo4j.call("addLock", options, function (error, data) {
+        // THIS CALLBACK IS NEVER CALLED
+        <strong>console.log("Click callback", error, data)</strong>
+      })
+    }
+  })</pre>
+  
 </template>

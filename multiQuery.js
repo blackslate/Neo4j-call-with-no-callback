@@ -10,39 +10,36 @@ var destroy =
   "DELETE n, r"
 var create = 
   "CREATE" +
-  "  (a:Node {name:'Hello'})-[:LINK]->(b:Node {name:'World'})" +
-  ", b-[:LINK]->a " +
-  "RETURN a"
+  "  (a:Node {name:'Hello', keys:[]})" +
+  ", (b:Node {name:'World', keys:[]})" +
+  "RETURN a, b"
+var getNodes = 
+  "MATCH (n:Node) " +
+  "RETURN n"
 var click = 
-  "MATCH (a:Node)-->(b:Node) " +
-  "WHERE a.name = {name} " +
+  "MATCH (a:Node), (b:Node) " +
+  "WHERE a.name = {name1} " +
+  "AND b.name = {name2} " +
+  "CREATE a-[r:LINK {lock:b.name}]->b " +
+  "SET a.keys = a.keys + b.name"
   "RETURN b"
 
 
 if (Meteor.isClient) {
-  Session.setDefault("name", "Hello")
-
-  Tracker.autorun(function (){
-    // key = "button" (identifies the publish/subscription channel)
-    var options = {name: Session.get("name")} // {} with  key
-    var link = "b" // same as the key for the RETURNed value
-    var subscription = helloWorld.subscribe(key, options, link)
-  })
-
   Template.hello.helpers({
     name: function () {
-      return Session.get("name")
+      return "Click me"
     }
   })
 
   Template.hello.events({
     'click button': function () {
       // helloWorld is a MongoDB Collection
-      var cursor = helloWorld.find() //  LocalCollection.Cursor
-      var result = cursor.fetch() // array of node objects
-      var node = result[0] || {}// first object in array
-      var name = node.name || "Not found"
-      Session.set("name", name);
+      var options = {name1: "Hello", name2: "World"}
+      Meteor.neo4j.call("addLock", options, function (error, data) {
+        // THIS CALLBACK IS NEVER CALLED
+        console.log("Click callback", error, data)
+      })
     }
   })
 }
@@ -57,17 +54,25 @@ if (Meteor.isServer) {
       Meteor.N4JDB.query(create, options, createCallback)
 
       function createCallback(error, data){
-        console.log("Created: ",error,data)
+        console.log("Created: ", error, data)
       }
     })
+  });
 
-    helloWorld.publish(key, publishCallback)
-
-    function publishCallback() {
-      //  is {name: <"Hello" | "world">}
+  Meteor.neo4j.methods({
+    "addLock": function(callback){
+      // this is:
+      // - a huge object that encapsulates the world, if the caller
+      //   does not send an object 
+      //   OR
+      // - the object sent by the caller
       console.log(click, this)
       return click
     }
+
+    // 'addPlayer': function(){
+    //   return 'CREATE (a:Player {_id:"' + String.generate() + '", name: {userName}, score: 0})';
+    // }
   });
 }
 
